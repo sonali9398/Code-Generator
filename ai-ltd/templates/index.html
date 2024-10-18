@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script defer src="{{ url_for('static', filename='script.js') }}"></script>
+    <title>Bot</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/themes/prism.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.28.0/prism.min.js"></script>
+ 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="mode">
+            <img src="{{ url_for('static', filename='light_y.png') }}" alt="Light Image" onclick="toggleChange()"/> 
+        </div>
+        
+        <div class="Newbuttons">
+            <img src="{{ url_for('static', filename='refresh.png') }}" alt="Refresh Image" id="newChatButton" class="new-chat-button"/>
+            <img src="{{ url_for('static', filename='share.png') }}" alt="Share Image" id="shareButton"/>
+        </div>
+
+        <div class="model-selection">
+            <label for="modelSelect">Model:</label>
+            <select id="modelSelect" name="model">
+                <option value="gemini">Gemini</option>
+                <option value="gpt4">GPT-4</option>
+                <option value="llama">LLaMA</option>
+                <option value="mistral">Mistral</option>
+            </select>
+        </div>
+
+        
+        <div id="shareModal" class="modal">
+            <div class="modal-content">
+                <span id="closeModal" style="float:right;cursor:pointer;">&times;</span>
+                <p>Share Options</p><br/>
+                <div class="three">
+                    <button id="copyLinkButton">Copy Link</button>
+                    <button id="downloadQrButton">QR Code</button>
+                    <img id="qrCodeImage" class="qrCodeImage" style="display:none; margin:auto" />
+                </div>
+                
+            </div>
+        </div>
+
+        <div id="chatContainer" class="chat-container">
+            <div id="loader" class="loader hidden"></div>
+        </div>
+
+        <div class="user-query">
+            {{query}} 
+            <img src="{{ url_for('static', filename='edit.png') }}" alt="Edit Image" class="edit-icon" onclick="editQuery()" />
+        </div>
+
+        <div class="box input-box">
+
+            <div id="stopButtonContainer" class="hidden">
+                <button id="stopButton" class="regenerate-button" style="display: block;" onclick="console.log('Stop button clicked')">Stop</button>
+            </div>
+
+            <div class="upload-file">
+                <input type="file" id="fileInput" name="file" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" required multiple onclick="triggerFileInput()" >
+                <!-- <input type="text" id="queryInput" placeholder="Enter Query" onkeydown="checkSubmit(event)" onpaste="handlePaste(event)"  contenteditable="true" /> -->
+                <textarea id="queryInput" placeholder="Enter Query" onkeydown="checkSubmit(event)" onpaste="handlePaste(event)"></textarea>
+
+            </div>
+
+            <img src="{{ url_for('static', filename='mic.png') }}" alt="mic" id="voiceButton" class="input-icon4"/>
+ 
+            <div>
+                <div id="status"></div>
+            </div>
+
+            <!-- <img src="{{ url_for('static', filename='upload.png') }}" alt="Upload Image" class="input-icon2" onclick="triggerFileInput()" /> -->
+            <!-- <img src="{{ url_for('static', filename='upload.png') }}" alt="Upload Image" class="input-icon2" onclick="triggerFileInput()" /> -->
+            <img src="{{ url_for('static', filename='add.png') }}" alt="Add Image" class="input-icon2" onclick="openFileUploadModal()" /> <!-- "+" Icon -->
+            <button id="mySpacesButton" onclick="openMySpaces()">My Spaces</button>
+        </div>
+
+        <div id="responseContainer" class="response-container">
+            <img src="{{ url_for('static', filename='download.png') }}" alt="download" id="downloadButton" class="input-icon3"/>    
+        </div>
+    </div>
+
+    <div id="mySpacesModal" class="modal">
+        <div class="modal-content">
+            <span id="closeMySpacesModal" class="close">&times;</span>
+            <p>Your Uploaded Files</p><br/>
+
+            <textarea id="mySpaceInput" placeholder="Enter My Space Query"></textarea>
+
+            <input type="text" id="searchQuery" placeholder="Search your files...">
+            <div id="uploadedFilesList"></div>
+            <div id="searchResults"></div>
+        </div>
+    </div>
+
+    <div id="fileUploadModal" class="modal">
+        <div class="modal-content">
+            <span id="closeUploadModal" class="close">&times;</span>
+            <p>Upload Files</p><br/>
+            <input type="file" id="fileUploadInput" name="fileUpload" multiple>
+            <button id="uploadFilesButton" onclick="saveUploadedFiles()">Save Files</button>
+        </div>
+    </div>
+
+    <style>
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: #303030;
+            padding-top: 60px;
+        }
+
+        .modal-content {
+            background-color: #303030;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* Style textarea */
+        #mySpaceInput {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 10px;
+        }
+
+        /* Style search input */
+        #searchQuery {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+            
+
+    </style>
+
+    <script>
+
+    // let controller = new AbortController();
+
+    function triggerFileInput() {
+        document.getElementById('fileInput').click();
+    }
+
+    let fileName = '';
+
+    function handleFileUpload(event) {
+        const files = event.target.files;
+        if (files.length > 0) {
+            fileName = Array.from(files).map(file => file.name).join(', '); 
+            document.getElementById('queryInput').innerText = ''; 
+        }
+    }
+    document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+
+    function toggleChange() {
+        const body = document.body;
+        const isDarkMode = body.classList.toggle('dark-mode');
+        const modeIcon = document.getElementById('modeIcon');
+        if (modeIcon) {
+            modeIcon.src = isDarkMode ? 'dark_y.png' : 'light_y.png';
+        }
+    }
+
+let lastUserQuery = '';
+
+// let xhr = null; 
+
+function autoSubmitQuery() {
+    const queryInput = document.getElementById('queryInput');
+    const query = queryInput.innerText.trim();
+
+    // Check if the query input is not empty
+    if (query !== "") {
+        submitQuery();
+    }
+}
+
+document.getElementById('newChatButton').onclick = function () {
+    const loader = document.getElementById('loader');
+    if (loader) {
+        loader.classList.add('hidden'); 
+    }
+
+    const chatContainer = document.getElementById('chatContainer');
+    if (chatContainer) {
+        chatContainer.innerHTML = ''; 
+    }
+
+    lastUserQuery = ''
+};
+
+
+document.getElementById('voiceButton').onclick = function () {
+    try {
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.interimResults = false; 
+        recognition.lang = 'en-US'; 
+        const statusElement = document.getElementById('status');
+
+        recognition.onstart = function() {
+            statusElement.textContent = 'Listening...';
+        };
+
+        recognition.onspeechend = function() {
+            statusElement.textContent = 'Stopped!!';
+            recognition.stop();
+        };
+
+        recognition.onerror = function(event) {
+            console.error('Recognition error: ' + event.error);
+        };
+
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript; 
+            console.log('Recognized speech:', transcript);
+
+            const queryInputElement = document.getElementById('queryInput');
+            if (queryInputElement) {
+                queryInputElement.value = transcript; 
+                queryInputElement.focus();
+
+                // Trigger the Enter key event
+                const enterEvent = new KeyboardEvent('keydown', {
+                    key: 'Enter',
+                    code: 'Enter',
+                    keyCode: 13,
+                    which: 13,
+                    bubbles: true
+                });
+                queryInputElement.dispatchEvent(enterEvent);
+
+            } else {
+                console.error("Element with ID 'queryInput' not found.");
+            }
+        };
+
+        recognition.start(); 
+
+    } catch (error) {
+        console.error("Error during voice recognition:", error);
+    }
+};
+
+
+let chatHistory = ''; 
+function submitQuery(regenerate = false) {
+    const queryInput = document.getElementById('queryInput').value.trim();
+    const fileInput = document.getElementById('fileInput');
+    
+    let query;
+    if (regenerate) {
+        query = lastUserQuery + " (regenerate)";  
+    } else {
+        query = queryInput;
+    }
+
+    lastUserQuery = query;
+    console.log('User input query:', query); 
+    chatHistory += `User input query: ${query}\n`;
+
+    // Use existing query if regenerating
+    let existingQuery = regenerate ? lastUserQuery : query;
+
+     if (!regenerate && (existingQuery === "" && fileInput.files.length === 0)) {
+        alert("Please enter a query or attach a file.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('question', query);
+
+    for (let i = 0; i < fileInput.files.length; i++) {
+            formData.append('file', fileInput.files[i]);
+        }
+
+    if (!regenerate) {
+        const userQueryContainer = document.createElement('div');
+        userQueryContainer.className = 'user-query-container';
+
+        const userQueryElement = document.createElement('div');
+        userQueryElement.className = 'user-query';
+        userQueryElement.textContent = query;
+        userQueryContainer.appendChild(userQueryElement);
+
+        const editButton = document.createElement('img');
+        editButton.src = "{{ url_for('static', filename='edit.png') }}";
+        editButton.alt = "Edit Image";
+        editButton.className = 'edit-icon';
+        editButton.onclick = () => {
+            document.getElementById('queryInput').value = query; 
+            document.getElementById('queryInput').focus(); 
+        };
+
+        userQueryContainer.appendChild(editButton);
+        document.getElementById('chatContainer').appendChild(userQueryContainer);
+        document.getElementById('queryInput').value = ''; 
+
+        lastUserQuery = query;
+    }
+
+    const userQueryContainer = document.createElement('div');
+    userQueryContainer.className = 'user-query-container';
+
+    const editButton = document.createElement('img');
+   
+    userQueryContainer.appendChild(editButton);
+    document.getElementById('chatContainer').appendChild(userQueryContainer);
+    document.getElementById('queryInput').value = '';
+
+    lastUserQuery = query;
+
+    document.getElementById('loader').classList.remove('hidden');
+    document.getElementById('stopButtonContainer').classList.remove('hidden');
+    // document.getElementById('stopButton').classList.remove('hidden');
+    document.getElementById('stopButton').style.display = 'block';
+
+    fileInput.value = '';
+    if (controller) {
+        controller.abort();
+    }
+
+    controller = new AbortController(); // Initialize a new instance of AbortController
+    const signal = controller.signal;
+
+    $.ajax({
+        url: '/ask',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        signal:  signal,
+        success: function(data) {
+            displayResponse(data.response);
+        },
+        error: function(error) {
+            if (error.statusText === 'abort') {
+                console.log('Request aborted');
+            } else {
+                displayResponse(`Error: ${error.responseText}`);
+            }
+        },
+
+        complete: function() {
+            document.getElementById('stopButtonContainer').classList.add('hidden');
+            document.getElementById('loader').classList.add('hidden');
+            document.getElementById('stopButton').style.display = 'none';
+            document.getElementById('stopButton').classList.add('hidden');
+
+            fileName = '';
+            document.getElementById('queryInput').value = '';
+        }
+    });
+}
+
+let controller;
+function startGeneratingAnswer() {
+    controller = new AbortController();
+    const signal = controller.signal;
+
+    showLoaderAndStopButton();
+
+
+    // Show the stop button when generation starts
+    // document.getElementById('stopButtonContainer').classList.remove('hidden');
+    // document.getElementById('stopButton').style.display = 'block';
+
+    // Start generating the answer
+    fetch('/generate', {
+        method: 'POST',
+        signal: signal,
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Handle the response
+        console.log('Answer generated:', data);
+        // Hide the stop button when done
+        // document.getElementById('stopButtonContainer').classList.add('hidden');
+        // document.getElementById('stopButton').style.display = 'none';
+        hideLoaderAndStopButton();
+    })
+    .catch(error => {
+        if (error.name === 'AbortError') {
+            console.log('Generation aborted');
+        } else {
+            console.error('Error:', error);
+        }
+        // document.getElementById('stopButtonContainer').classList.add('hidden');
+        // document.getElementById('stopButton').style.display = 'none';
+
+        hideLoaderAndStopButton();
+    });
+}
+
+
+document.getElementById('stopButton').addEventListener('click', function() {
+    if (controller) {
+        controller.abort();
+        hideLoaderAndStopButton();
+        // document.getElementById('stopButtonContainer').classList.add('hidden');
+        // document.getElementById('loader').classList.add('hidden');
+        // document.getElementById('stopButton').classList.add('hidden');
+        // document.getElementById('stopButton').style.display = 'none';
+        fileName = '';
+
+        fetch('/stop', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({}),
+        })
+        .then(response => response.json())
+        .then(data => console.log(data.result))
+        .catch(error => console.error('Error:', error));
+    } else {
+        console.error('Controller is not defined');
+    }
+});
+function showLoaderAndStopButton() {
+    document.getElementById('loader').classList.remove('hidden');
+    document.getElementById('stopButtonContainer').classList.remove('hidden');
+    document.getElementById('stopButton').style.display = 'block';
+}
+
+function hideLoaderAndStopButton() {
+    document.getElementById('loader').classList.add('hidden');
+    document.getElementById('stopButtonContainer').classList.add('hidden');
+    document.getElementById('stopButton').style.display = 'none';
+}
+
+let currentResponseText = '';
+
+function displayResponse(responseText, regenerate = false) {
+    currentResponseText = responseText; 
+    if (regenerate) {
+        document.getElementById('chatContainer').innerHTML = '';
+    }
+
+    const responseContainer = document.createElement('div');
+    responseContainer.className = 'response-container-item';
+
+    const responseElement = document.createElement('div');
+    responseElement.className = 'response';
+
+    // Separate code and non-code content
+    const codeRegex = /```(\w+)?([\s\S]*?)```/g;
+    let lastIndex = 0;
+    let match;
+ 
+    while ((match = codeRegex.exec(responseText)) !== null) {
+        // Non-code content
+        if (match.index > lastIndex) {
+            const text = responseText.substring(lastIndex, match.index).trim();
+            if (text) {
+                processTextContent(text, responseElement);
+            }
+        }
+ 
+        // Code content
+        const language = match[1] || 'plain'; 
+        const codeContent = match[2].trim();
+
+         // Create a container for the code block and the copy button
+         const codeContainer = document.createElement('div');
+        codeContainer.className = 'code-container';
+
+        // Create and style the copy button
+        const codeCopyButton = document.createElement('button');
+        codeCopyButton.className = 'code-copy-button';
+        codeCopyButton.textContent = 'Copy Code';
+
+        function copyToClipboard1(text) {
+            if (!text) {
+                console.error('No text provided to copy to clipboard.');
+                return;
+            }
+        }
+
+        // Copy code and show "Copied!" message
+        codeCopyButton.onclick = () => {
+            copyToClipboard1(codeContent);
+
+            // Change the button text to "Copied!" and temporarily disable the button
+            const originalText = codeCopyButton.textContent;
+            codeCopyButton.textContent = 'Copied!';
+            codeCopyButton.disabled = true;
+
+            // Revert the button text back to "Copy Code" after a short delay and re-enable the button
+            setTimeout(() => {
+                codeCopyButton.textContent = originalText;
+                codeCopyButton.disabled = false;
+            }, 1500);
+        };
+
+        // Add the copy button and code block to the container
+        codeContainer.appendChild(codeCopyButton);
+        const copiedMessage1 = document.createElement('div');
+
+        codeContainer.appendChild(copiedMessage1);
+        codeContainer.appendChild(codeCopyButton);
+       
+        const codeBlock = document.createElement('pre');
+        const codeElement = document.createElement('code');
+       
+        codeElement.className = `language-${language}`; // Set language for syntax highlighting
+        codeElement.textContent = codeContent;
+
+        codeBlock.appendChild(codeElement);
+        codeContainer.appendChild(codeBlock); // Append code block to the code container
+        responseElement.appendChild(codeContainer); // Append the entire code container to the response element
+ 
+        lastIndex = codeRegex.lastIndex;
+    }
+ 
+     
+    if (lastIndex < responseText.length) {
+        const remainingText = responseText.substring(lastIndex).trim();
+            if (remainingText) {
+            processTextContent(remainingText, responseElement);
+        }
+    }
+
+    
+    if (fileName) {
+        const fileNameElement = document.createElement('p');
+        fileNameElement.textContent = `Uploaded File: ${fileName}`;
+        responseElement.appendChild(fileNameElement);
+    }
+
+    responseContainer.appendChild(responseElement);
+    // typeResponsePoints(responseElement, responseText);
+
+    
+    // Create a container for the buttons
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'button-container';
+
+    // Copy button
+    const copyButton = document.createElement('img');
+    copyButton.src = "{{ url_for('static', filename='copy.png') }}"; 
+    copyButton.className = 'copy-button';
+    copyButton.alt = 'Copy';
+    copyButton.onclick = () => copyToClipboard(responseText, copyButton);
+    buttonContainer.appendChild(copyButton);
+
+    // Regenerate button
+    const regenerateButton = document.createElement('img');
+    regenerateButton.src = "{{ url_for('static', filename='regenerate.png') }}"; 
+    regenerateButton.className = 'regenerate-button';
+    regenerateButton.alt = 'regenerate-button';
+    regenerateButton.onclick = () => submitQuery(true);
+    buttonContainer.appendChild(regenerateButton);
+
+    // Download button
+    const downloadButtonContainer = document.createElement('div');
+    downloadButtonContainer.className = 'download-button-container';
+    const downloadButtonIcon = document.createElement('img'); 
+    downloadButtonIcon.src = "{{ url_for('static', filename='download.png') }}";
+    downloadButtonIcon.className = 'input-icon3';  
+    downloadButtonIcon.alt = 'Download';
+    downloadButtonIcon.onclick = () => toggleDropdown(downloadButtonContainer);
+    downloadButtonContainer.appendChild(downloadButtonIcon);
+   
+
+    const dropdownContainer = document.createElement('div');
+    dropdownContainer.className = 'dropdown';
+
+    const formats = ['txt', 'pdf', 'json', 'xlsx'];
+    formats.forEach(format => {
+        const optionButton = document.createElement('button');
+        optionButton.textContent = `Download as ${format.toUpperCase()}`;
+        optionButton.onclick = () => downloadFile(format, responseText);
+        dropdownContainer.appendChild(optionButton);
+    });
+
+   
+    // Append the dropdown to the download button container
+    downloadButtonContainer.appendChild(dropdownContainer);
+    buttonContainer.appendChild(downloadButtonContainer);
+
+      // Google button
+      const googleButton = document.createElement('button');
+        googleButton.textContent = 'Google';
+        googleButton.className = 'google-button';
+        googleButton.onclick = () => {
+            const searchQuery = encodeURIComponent(lastUserQuery || ""); 
+            window.open(`https://www.google.com/search?q=${searchQuery}`, '_blank');
+        };
+        buttonContainer.appendChild(googleButton);
+
+    responseContainer.appendChild(buttonContainer);
+
+    document.getElementById('chatContainer').appendChild(responseContainer);
+
+    console.log('Generated response:', responseText);
+    chatHistory += `Generated response: ${responseText}\n\n`;
+    scrollToBottom();
+
+    if (typeof Prism !== 'undefined') {
+        Prism.highlightAll();
+    }
+}
+
+document.getElementById('modelSelect').addEventListener('change', function() {
+    const selectedModelName = this.value;
+    const modelNameElements = document.querySelectorAll('.model-name');
+    
+    modelNameElements.forEach(element => {
+        element.textContent = `Response generated by ${selectedModelName}`;
+    });
+});
+
+let itemNumber = 1;
+
+function processTextContent(text, container) {
+    const linkRegex = /(\b(https?|ftp):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/gi;
+    const headingRegex = /^#{1,6}\s+/; 
+    const listItemRegex = /^(\s*)([\*\-+]|\d+\.)\s+/gm;// Regex to identify unordered list items
+    const numberedListItemRegex = /^\d+\.\s+/; // Regex to identify ordered list items
+    const boldRegex = /\*\*(.*?)\*\*/g; // Regex to identify bold text
+    const semiBoldRegex = /__(.*?)__/g; // Regex to identify semi-bold text
+
+    const lines = text.split('\n');
+    let currentList = null; // Track the current list (unordered or ordered)
+
+    lines.forEach(line => {
+        let trimmedLine = line.trim();
+        if (trimmedLine) {
+            // Handle headings (Markdown style)
+            if (headingRegex.test(trimmedLine)) {
+                const headingLevel = (trimmedLine.match(/^#{1,6}/)[0].length);
+                const headingText = trimmedLine.replace(/^#{1,6}\s*/, '');
+                const headingElement = document.createElement(`h${headingLevel}`);
+                headingElement.innerHTML = headingText.replace(boldRegex, '<strong>$1</strong>').replace(semiBoldRegex, '<span class="semi-bold">$1</span>');
+                container.appendChild(headingElement);
+                // End any current list
+                currentList = null;
+            }
+            // Handle unordered list items
+            else if (listItemRegex.test(trimmedLine)) {
+                const listItemText = trimmedLine.replace(listItemRegex, '');
+                if (!currentList || currentList.type !== 'ul') {
+                    // Create a new unordered list if necessary
+                    if (currentList) container.appendChild(currentList.element);
+                    const ul = document.createElement('ul');
+                    container.appendChild(ul);
+                    currentList = { type: 'ul', element: ul };
+                }
+                const li = document.createElement('li');
+                li.innerHTML = listItemText.replace(boldRegex, '<strong>$1</strong>').replace(semiBoldRegex, '<span class="semi-bold">$1</span>');
+                currentList.element.appendChild(li);
+            }
+            // Handle ordered list items
+            else if (numberedListItemRegex.test(trimmedLine)) {
+                const listItemText = trimmedLine.replace(numberedListItemRegex, '');
+                if (!currentList || currentList.type !== 'ol') {
+                    // Create a new ordered list if necessary
+                    if (currentList) container.appendChild(currentList.element);
+                    const ol = document.createElement('ol');
+                    container.appendChild(ol);
+                    currentList = { type: 'ol', element: ol };
+                }
+                const li = document.createElement('li');
+                li.innerHTML = listItemText.replace(boldRegex, '<strong>$1</strong>').replace(semiBoldRegex, '<span class="semi-bold">$1</span>');
+                currentList.element.appendChild(li);
+            }
+            else {
+                // Handle regular text
+                const textElement = document.createElement('p');
+                textElement.innerHTML = trimmedLine.replace(boldRegex, '<strong>$1</strong>').replace(semiBoldRegex, '<span class="semi-bold">$1</span>');
+                if (currentList) {
+                    // End list when encountering non-list text
+                    container.appendChild(currentList.element);
+                    currentList = null;
+                }
+                container.appendChild(textElement);
+            }
+        }
+    });
+
+    // Append any remaining list at the end
+    if (currentList) {
+        container.appendChild(currentList.element);
+    }
+}
+
+
+
+function toggleDropdown(buttonContainer) {
+    const dropdown = buttonContainer.querySelector('.dropdown');
+    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+}
+//to hide if click outside
+document.addEventListener('click', function(event) {
+    const dropdowns = document.querySelectorAll('.download-button-container .dropdown');
+    dropdowns.forEach(dropdown => {
+        if (!dropdown.parentElement.contains(event.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+});
+
+function downloadFile(format) {
+    let data;
+
+    if (format === 'txt') {
+        data = currentResponseText;
+    } else if (format === 'json') {
+        data = JSON.stringify({ response: currentResponseText }, null, 2);
+    } else if (format === 'pdf') {
+        generatePDF(currentResponseText);
+        return;
+    }
+     else if(format === 'xlsx'){
+        generateExcel(currentResponseText);
+        return;
+    }
+
+    const blob = new Blob([data], { type: getMimeType(format) });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `response.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function generatePDF(responseText) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.text(responseText, 10, 10);
+    doc.save('response.pdf');
+}
+
+function generateExcel(responseText) {
+    const rows = responseText.split('\n').map(row => ({ response: row }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Responses");
+    XLSX.writeFile(wb, 'response.xlsx');
+}
+
+function getMimeType(format) {
+    switch (format) {
+        case 'txt': return 'text/plain';
+        case 'json': return 'application/json';
+        case 'pdf': return 'application/pdf';
+        case 'xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        default: return 'application/octet-stream';
+    }
+}
+
+
+function copyToClipboard(text, buttonElement) {
+    const geminiLine = "Response generated by Gemini";
+    const cleanText = text.replace(geminiLine, '').trim();
+    
+    // Create or select the copied message element
+    let copiedMessage = document.getElementById('copiedMessage');
+    if (!copiedMessage) {
+        copiedMessage = document.createElement('div');
+        copiedMessage.id = 'copiedMessage';
+        copiedMessage.textContent = 'Copied!';
+        copiedMessage.style.color = 'white';
+        copiedMessage.style.fontSize = '12px';
+        copiedMessage.style.marginBottom = '5px';
+        copiedMessage.style.textAlign = 'center';
+        buttonElement.parentElement.insertBefore(copiedMessage, buttonElement);
+    }
+
+    // Copy the text to clipboard
+    navigator.clipboard.writeText(cleanText).then(() => {
+        // console.log('Text copied to clipboard');
+        
+        copiedMessage.style.display = 'block';
+        setTimeout(() => {
+            copiedMessage.style.display = 'none'; 
+        }, 1500);
+        
+        buttonElement.textContent = 'Copied!';
+        setTimeout(() => {
+            buttonElement.textContent = 'Copy Code'; 
+        }, 1500);
+    }).catch(err => {
+        console.error('Error copying to clipboard:', err);
+    });
+}
+
+
+function editQuery() {
+    if (lastUserQuery) {
+        document.getElementById('queryInput').value = lastUserQuery; 
+        document.getElementById('queryInput').focus(); 
+    } else {
+        alert("No query available to edit.");
+    }
+}
+
+
+function typeResponsePoints(element, text) {
+
+    const points = text.split('\n').filter(point => point.trim() !== "");
+    let i = 0;
+
+    function displayNextPoint() {
+        if (i < points.length) {
+            const pointElement = document.createElement('p');
+            pointElement.textContent = points[i];
+            element.appendChild(pointElement);
+            i++;
+            scrollToBottom();
+            setTimeout(displayNextPoint, 200); 
+        } 
+        else {
+            scrollToBottom();
+        }
+    }
+
+    displayNextPoint();
+}
+
+function scrollToBottom() {
+    const chatContainer = document.getElementById('chatContainer');
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function checkSubmit(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault(); 
+        submitQuery();
+    }
+}
+
+
+// Add event listener for keypress
+document.getElementById('queryInput').addEventListener('keypress', checkSubmit);
+
+//Adjust chat container height based on input box height
+document.addEventListener('DOMContentLoaded', function() {
+    const inputBoxHeight = document.querySelector('.input-box').offsetHeight;
+    document.getElementById('chatContainer').style.height = `calc(100vh - ${inputBoxHeight}px)`;
+    document.querySelector('.input-box').style.width = `var(--chat-width)`;
+    document.querySelector('#chatContainer').style.width = `var(--chat-width)`;
+    
+});               
+
+
+
+document.getElementById('shareButton').onclick = async function () {
+    const responseText = 'Your response text here'; // Replace with the actual response text generation logic
+    const query = document.getElementById('queryInput').value.trim(); // Capturing the user's query input
+
+    // if (responseText || query === '') {
+    //     alert('No response or query to share');
+    //     return;
+    // }
+
+    // Combine the query and response text
+    const combinedContent = `Query: ${query}\n\nResponse: ${responseText}`;
+    console.log('Combined content:', combinedContent);
+
+    const modal = document.getElementById('shareModal');
+    modal.style.display = 'block';
+
+    document.getElementById('downloadQrButton').onclick = async function () {
+        try {
+            const response = await fetch('/save_response', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ response: chatHistory })
+            });
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const data = await response.json();
+            const link = data.link;
+            const qrCodeUrl = data.qr_code;
+
+            console.log('Generated link:', link);
+            console.log('Generated QR Code URL:', qrCodeUrl);
+
+            const qrCodeImage = document.getElementById('qrCodeImage');
+            qrCodeImage.src = qrCodeUrl;
+            qrCodeImage.style.display = 'block';
+
+            document.getElementById('copyLinkButton').onclick = function () {
+                navigator.clipboard.writeText(link).then(() => {
+                    alert('Link copied to clipboard');
+                }).catch(err => {
+                    console.error('Failed to copy link:', err);
+                });
+            };
+        } catch (error) {
+            console.error('Error generating link and QR code:', error);
+        }
+    };
+
+    document.getElementById('closeModal').onclick = function () {
+        modal.style.display = 'none';
+    };
+
+    window.onclick = function (event) {
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    };
+};
+
+// Handle "+" icon click for file upload
+    function openFileUploadModal() {
+            document.getElementById('fileUploadModal').style.display = 'block';
+        }
+
+        // Close file upload modal
+        document.getElementById('closeUploadModal').addEventListener('click', () => {
+            document.getElementById('fileUploadModal').style.display = 'none';
+        });
+
+        // Handle "My Spaces" button click
+        function openMySpaces() {
+            document.getElementById('mySpacesModal').style.display = 'block';
+            displayUploadedFiles(); // Display uploaded files in My Spaces modal
+        }
+
+        // Close "My Spaces" modal
+        document.getElementById('closeMySpacesModal').addEventListener('click', () => {
+            document.getElementById('mySpacesModal').style.display = 'none';
+        });
+
+        // Save uploaded files
+        function saveUploadedFiles() {
+            const files = document.getElementById('fileUploadInput').files;
+            if (files.length > 0) {
+                let storedFiles = JSON.parse(localStorage.getItem('files') || '[]');
+                for (let i = 0; i < files.length; i++) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        storedFiles.push({ name: files[i].name, content: e.target.result });
+                        localStorage.setItem('files', JSON.stringify(storedFiles));
+                        displayUploadedFiles(); // Refresh file list after saving
+                    };
+                    reader.readAsDataURL(files[i]); // Save as Base64
+                }
+            }
+            document.getElementById('fileUploadModal').style.display = 'none'; // Close modal after saving
+        }
+
+        // Display uploaded files in "My Spaces"
+        // function displayUploadedFiles() {
+        //     const files = JSON.parse(localStorage.getItem('files') || '[]');
+        //     const fileList = document.getElementById('uploadedFilesList');
+        //     fileList.innerHTML = files.map(file => `<div>${file.name}</div>`).join('');
+        // }
+
+        // Display uploaded files in "My Spaces"
+        function displayUploadedFiles() {
+            const files = JSON.parse(localStorage.getItem('files') || '[]');
+            const fileList = document.getElementById('uploadedFilesList');
+            fileList.innerHTML = files.map((file, index) => `
+                <div>
+                    ${file.name} 
+                    <span style="cursor:pointer; color:red;" onclick="removeFile(${index})">X</span>
+                </div>
+            `).join('');
+        }
+
+        // Remove file
+        function removeFile(index) {
+            let storedFiles = JSON.parse(localStorage.getItem('files') || '[]');
+            storedFiles.splice(index, 1); // Remove file at index
+            localStorage.setItem('files', JSON.stringify(storedFiles));
+            displayUploadedFiles(); // Refresh file list
+        }
+
+        // Handle search in "My Spaces"
+        document.getElementById('searchQuery').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const files = JSON.parse(localStorage.getItem('files') || '[]');
+            const results = files.filter(file => file.content.toLowerCase().includes(query));
+            document.getElementById('searchResults').innerHTML = results.map(file => `<div>${file.name}: ${file.content.substring(0, 100)}...</div>`).join('');
+        });
+
+        // Event listener for My Space input
+        document.getElementById('mySpaceInput').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                submitMySpaceQuery();
+            }
+        });
+
+        function submitMySpaceQuery() {
+            const mySpaceQuery = document.getElementById('mySpaceInput').value.trim();
+            if (mySpaceQuery === "") {
+                alert("Please enter a query.");
+                return;
+            }
+
+            // Set the query input value and trigger the main submitQuery function
+            document.getElementById('queryInput').value = mySpaceQuery;
+            submitQuery();
+
+            document.getElementById('mySpacesModal').style.display = 'none';
+        }
+
+
+
+
+
+
+
+function handlePaste(event) {
+    const clipboardData = event.clipboardData || window.clipboardData;
+    const items = clipboardData.items;
+    
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+            const blob = items[i].getAsFile();
+            const reader = new FileReader();
+            
+            reader.onload = function(event) {
+                const img = document.createElement("img");
+                img.src = event.target.result;
+                img.style.maxHeight = "30px"; 
+                img.style.maxWidth = "100px"; 
+                const div = document.getElementById("queryInput");
+                div.innerHTML = ''; // Clear previous content if needed
+                div.appendChild(img);
+            };
+            
+            reader.readAsDataURL(blob);
+            event.preventDefault(); 
+        }
+    }
+} 
+
+
+    </script>
+</body>
+</html>
